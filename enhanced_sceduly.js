@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Enhanced Sceduly
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Enables selective hiding and displaying of schedule items in Sceduly based on title and group
 // @author       Tomislav Petrović <t.petrovic@inet.hr>
 // @match        https://sceduly.com/hr/?page=Profile*
@@ -15,9 +15,9 @@
 (function() {
     'use strict';
 
-    let paramNames = {"Colors": "Colors", "Address" : "Address", "Group" : "Group", "No Headers" : "No Headers" };
+    let paramNames = {"Colors": "Colors", "Address" : "Address", "Group" : "Group", "No Headers" : "No headers", "No Empty Weeks" : "Hide empty weeks" };
     if (window.location.href.indexOf('/hr/') !== -1) {
-        paramNames = {"Colors": "Boje", "Address" : "Adresa", "Group" : "Grupa", "No Headers" : "Bez zaglavlja" };
+        paramNames = {"Colors": "Boje", "Address" : "Adresa", "Group" : "Grupa", "No Headers" : "Bez zaglavlja", "No Empty Weeks" : "Sakrij prazne tjedne" };
     }
 
     const contentContainerTopPadding = $('#contentContainer').css('padding-top');
@@ -25,6 +25,14 @@
 
     function getSubject(node) {
         return node.find(".title").text().trim() + " " + node.find(".group").text().trim();
+    }
+
+    function subjectDisplayFromName(name) {
+        return name.replace("Group", paramNames["Group"]);
+    }
+
+    function subjectNameFromDisplay(display) {
+        return display.replace(paramNames["Group"], "Group");
     }
 
     function showOrHide(element, show)
@@ -39,7 +47,7 @@
     function showHideAll(subjects, classes, params)
     {
         $('.event').each(function(i, obj) {
-            const subject = getSubject($(this));
+            const subject = subjectNameFromDisplay(getSubject($(this)));
             showOrHide($(this), subjects[subject]);
 
             if (params["Colors"] === false) {
@@ -78,6 +86,16 @@
         $('.calendar.month > table > tbody > tr > td').each(function(i, obj) {
             showOrHide($(this), params["Day"+ (i % ths.length)]);
         });
+
+        $('.calendar.month > table > tbody > tr').each(function(itr, tr) {
+            let emptyDays = 0;
+            $(this).find('td').each(function(itd, td) {
+                let divs = $(this).find('> div').length;
+                let emptyDivs = $(this).find('> div[style*="display: none"]').length;
+                emptyDays += divs - emptyDivs >= 2 ? 1 : 0; // div displaying date is present always
+            });
+            showOrHide($(this), !params["No Empty Weeks"] || itr === 0 || emptyDays !== 0);
+        });
     }
 
     function createQBlock() {
@@ -105,7 +123,7 @@
         const localStorageParamKeyName = "paramsState";
         clearInterval(intervalId);
 
-        let initialParams = Object.keys(paramNames).reduce(function (map, key) { map[key] = true; return map; }, {});
+        let initialParams = Object.keys(paramNames).reduce(function (map, key) { map[key] = key === "No Headers" || key === "No Empty Weeks" ? false : true; return map; }, {});
         $('.calendar.month > table > tbody > tr:first-child > th').each(function(i, obj) {
             initialParams["Day"+i] = true;
         });
@@ -123,7 +141,7 @@
 
         let classes = {};
         $('.event').each(function(i, obj) {
-            const subject = getSubject($(this));
+            const subject = subjectNameFromDisplay(getSubject($(this)));
             if (!(subject in subjects))
                 subjects[subject] = true;
 
@@ -156,7 +174,7 @@
 
         var subjectDiv = $('<div/>');
         $.each(Object.keys(subjects).sort(), function(i, subject) {
-            createCheckbox(subjects, localStorageKeyName, subjectDiv, "Subject" + i, subject, subject, function() { showHideAll(subjects, classes, params); });
+            createCheckbox(subjects, localStorageKeyName, subjectDiv, "Subject" + i, subject, subjectDisplayFromName(subject), function() { showHideAll(subjects, classes, params); });
         });
         subjectDiv.appendTo(newDiv);
         $(".tabMenuContentContainer").prepend(newDiv);
