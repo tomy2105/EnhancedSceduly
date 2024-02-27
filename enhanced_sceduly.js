@@ -9,7 +9,7 @@
 // @icon         https://www.google.com/s2/favicons?sz=64&domain=sceduly.com
 // @require      http://code.jquery.com/jquery-latest.js
 // @grant        none
-// @license      none
+// @license      MIT
 // ==/UserScript==
 
 (function() {
